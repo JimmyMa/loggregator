@@ -11,6 +11,7 @@ import (
 
 type heartbeatRequester interface {
 	Start(net.Addr, net.PacketConn)
+	KnownAndReset(senderAddr net.Addr) bool
 }
 
 type EventListener struct {
@@ -37,11 +38,13 @@ func (eventListener *EventListener) Start() {
 	if err != nil {
 		eventListener.logger.Fatalf("Failed to listen on port. %s", err)
 	}
+	connection.(*net.UDPConn).SetReadBuffer( 1024 * 1024 * 50 )
+
 	eventListener.logger.Infof("Listening on port %s", eventListener.host)
 	eventListener.lock.Lock()
 	eventListener.connection = connection
 	eventListener.lock.Unlock()
-
+	
 	readBuffer := make([]byte, 65535) //buffer with size = max theoretical UDP size
 	defer close(eventListener.dataChannel)
 	for {
@@ -57,8 +60,9 @@ func (eventListener *EventListener) Start() {
 		atomic.AddUint64(&eventListener.receivedMessageCount, 1)
 		atomic.AddUint64(&eventListener.receivedByteCount, uint64(readCount))
 		eventListener.dataChannel <- readData
-
-		go eventListener.requester.Start(senderAddr, connection)
+        if ! eventListener.requester.KnownAndReset(senderAddr) {
+		  go eventListener.requester.Start(senderAddr, connection)
+	    }
 	}
 }
 

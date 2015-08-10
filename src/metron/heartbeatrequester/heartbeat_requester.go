@@ -33,6 +33,17 @@ type pingTarget struct {
 	deregisterTimer *time.Timer
 }
 
+func (requester *HeartbeatRequester) KnownAndReset(senderAddr net.Addr) bool {
+	requester.lock.Lock()
+	pTarget, ok := requester.pingTargets[senderAddr.String()]
+	requester.lock.Unlock()
+	if ok {
+		pTarget.deregisterTimer.Reset(requester.pingTimeout)
+	}
+	return ok
+}
+
+
 func (requester *HeartbeatRequester) Start(senderAddr net.Addr, connection net.PacketConn) {
 	if requester.senderKnown(senderAddr) {
 		requester.resetTimer(senderAddr)

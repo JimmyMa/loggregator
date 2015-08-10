@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"os"
+	"strconv"
 
 	"github.com/cloudfoundry/dropsonde/events"
 	"github.com/cloudfoundry/gosteno"
@@ -76,7 +78,12 @@ func (s *SyslogSink) Run(inputChan <-chan *events.Envelope) {
 		}
 	}()
 
-	buffer := sinks.RunTruncatingBuffer(filteredChan, 100, s.Logger, s.dropsondeOrigin)
+    message_size := uint( 100 )
+    size_env, err := strconv.Atoi( os.Getenv( "syslog_message_size" ) )
+    if err == nil {
+      message_size = uint( size_env )
+    }
+	buffer := sinks.RunTruncatingBuffer(filteredChan, message_size, s.Logger, s.dropsondeOrigin)
 	timer := time.NewTimer(backoffStrategy(numberOfTries))
 	connected := false
 	defer timer.Stop()
